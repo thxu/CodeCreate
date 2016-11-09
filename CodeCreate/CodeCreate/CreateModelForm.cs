@@ -380,7 +380,7 @@ namespace Model生成器
                 }
                 i++;
             }
-            updateCode.AppendFormat("\t\t\tsql.Append(\" WHERE {0} = @{0}; \");\r\n", propList[0]);
+            updateCode.AppendFormat("\t\t\tsql.Append(\" WHERE {0} = @{0} LIMIT 1; \");\r\n", propList[0]);
             updateCode.Append("\r\n");
             i = 0;
             foreach (string prop in propList)
