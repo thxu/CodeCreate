@@ -337,7 +337,7 @@ namespace Model生成器
             }
             addCode.Append("\t\t\t}\r\n");
             addCode.Append("\t\t\tint result = ExecuteNonQuery(sql.ToString().TrimEnd(','));\r\n");
-            addCode.Append("\t\t\tif (result <= 0)\r\n");
+            addCode.Append("\t\t\tif (result != entitys.Count)\r\n");
             addCode.Append("\t\t\t{\r\n");
             addCode.Append("\t\t\t\tthrow new CustomException(\"批量插入数据失败\");\r\n");
             addCode.Append("\t\t\t}\r\n");
