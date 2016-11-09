@@ -354,7 +354,7 @@ namespace Model生成器
             StringBuilder updateCode = new StringBuilder();
             string tbName = Path.GetFileNameWithoutExtension(StrXlsPath);
             updateCode.Append("\t\t/// <summary>\r\n");
-            updateCode.Append("\t\t/// 批量添加\r\n");
+            updateCode.Append("\t\t/// 更新实体\r\n");
             updateCode.Append("\t\t/// <param name=\"entity\">实体</param>\r\n");
             updateCode.Append("\t\t/// </summary>\r\n");
             updateCode.AppendFormat("\t\tpublic int Update({0} entity)\r\n", tbName);
