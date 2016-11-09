@@ -456,7 +456,7 @@ namespace Model生成器
             strRes.Append("\t\t/// 构造函数\r\n");
             strRes.Append("\t\t/// </summary>\r\n");
             strRes.Append("\t\t/// <param name=\"unit\">工作单元</param><param name=\"name\">链接名称</param>\r\n");
-            strRes.Append("\t\tpublic CarrierPolicyRulesRepository(IUnitOfWork unit, string name) : base(unit, name)\r\n");
+            strRes.AppendFormat("\t\tpublic {0}(IUnitOfWork unit, string name) : base(unit, name)\r\n", strName);
             strRes.Append("\t\t{\r\n");
             strRes.Append("\t\t}");
             strRes.Append(Environment.NewLine);
@@ -482,7 +482,7 @@ namespace Model生成器
             sb.AppendFormat("\t\t#region {0}\r\n", tbName);
             sb.Append("\t\t/// <summary>\r\n");
             sb.AppendFormat("\t\t/// 创建{0}仓储接口\r\n", tbName);
-            sb.Append("\t\t/// <summary>\r\n");
+            sb.Append("\t\t/// </summary>\r\n");
             sb.AppendFormat("\t\t/// {0}仓储接口\r\n", tbName);
             sb.AppendFormat("\t\tpublic static I{0}Repository CreateI{0}RepositoryRead()\r\n", tbName);
             sb.Append("\t\t{\r\n");
@@ -491,7 +491,7 @@ namespace Model生成器
             sb.AppendFormat(Environment.NewLine);
             sb.Append("\t\t/// <summary>\r\n");
             sb.AppendFormat("\t\t/// 创建{0}仓储接口\r\n", tbName);
-            sb.Append("\t\t/// <summary>\r\n");
+            sb.Append("\t\t/// </summary>\r\n");
             sb.AppendFormat("\t\t/// {0}仓储接口\r\n", tbName);
             sb.AppendFormat("\t\tpublic static I{0}Repository CreateI{0}RepositoryWrite()\r\n", tbName);
             sb.Append("\t\t{\r\n");
@@ -500,7 +500,7 @@ namespace Model生成器
             sb.AppendFormat(Environment.NewLine);
             sb.Append("\t\t/// <summary>\r\n");
             sb.AppendFormat("\t\t/// 创建{0}仓储接口\r\n", tbName);
-            sb.Append("\t\t/// <summary>\r\n");
+            sb.Append("\t\t/// </summary>\r\n");
             sb.Append("\t\t/// <param name=\"unitOfWork\">工作单元</param>\r\n");
             sb.AppendFormat("\t\t/// {0}仓储接口\r\n", tbName);
             sb.AppendFormat("\t\tpublic static I{0}Repository CreateI{0}RepositoryWrite(IUnitOfWork unitOfWork)\r\n", tbName);
