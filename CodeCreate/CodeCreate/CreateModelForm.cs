@@ -39,48 +39,48 @@ namespace Model生成器
             {
                 DataTable dt = new ExcelHelper(StrXlsPath).ExcelToDataTable("Sheet1", true);
                 //strModel = strModel + "\r\n" + GetAddCode(dt) + "\r\n" + GetBatchAddCode(dt) + "\r\n" + GetUpdateCode(dt);
-                string ModelFileName = Path.GetFileNameWithoutExtension(StrXlsPath);
+                string modelFileName = Path.GetFileNameWithoutExtension(StrXlsPath);
 
                 // IRepository
-                if (this.checkModel.Checked)
+                if (checkModel.Checked)
                 {
                     // Model
-                    string model = GetModel(dt, ModelFileName);
-                    Write(ModelFileName, model);
+                    string model = GetModel(dt, modelFileName);
+                    Write(modelFileName, model);
                 }
 
                 // IRepository
-                if (this.checkIRepository.Checked)
+                if (checkIRepository.Checked)
                 {
-                    string iRepositoryFileName = string.Format("I{0}Repository", ModelFileName);
+                    string iRepositoryFileName = $"I{modelFileName}Repository";
                     string iRepository = GetIRepository(iRepositoryFileName);
                     Write(iRepositoryFileName, iRepository);
                 }
 
                 // Repository
-                if (this.checkRepository.Checked)
+                if (checkRepository.Checked)
                 {
-                    string repositoryFileName = string.Format("{0}Repository", ModelFileName);
+                    string repositoryFileName = $"{modelFileName}Repository";
                     string repository = GetRepository(repositoryFileName, dt);
                     Write(repositoryFileName, repository);
                 }
 
                 // Factory
-                if (this.checkFactory.Checked)
+                if (checkFactory.Checked)
                 {
-                    string factoryFileName = string.Format("{0}Factory", ModelFileName);
+                    string factoryFileName = $"{modelFileName}Factory";
                     string factory = GetFactory();
                     Write(factoryFileName, factory);
                 }
 
                 // Event
-                if (this.checkEvent.Checked)
+                if (checkEvent.Checked)
                 {
-                    string eventFileName = string.Format("{0}Event", ModelFileName);
-                    string @event = GetTableEvent(eventFileName, dt);
+                    string eventFileName = $"{modelFileName}Event";
+                    string @event = GetTableEvent(dt);
                     WriteSql(eventFileName, @event);
                 }
-               
+
             }
             catch (Exception ex)
             {
@@ -92,7 +92,7 @@ namespace Model生成器
 
         private static void Write(string name, string strModel)
         {
-            string path = StrXlsPath.Substring(0, StrXlsPath.LastIndexOf(@"\")) + @"\" + name + ".cs";
+            string path = StrXlsPath.Substring(0, StrXlsPath.LastIndexOf(@"\", StringComparison.Ordinal)) + @"\" + name + ".cs";
             using (StreamWriter sw = new StreamWriter(path))
             {
                 sw.Write(strModel);
@@ -101,7 +101,7 @@ namespace Model生成器
 
         private static void WriteSql(string name, string strModel)
         {
-            string path = StrXlsPath.Substring(0, StrXlsPath.LastIndexOf(@"\")) + @"\" + name + ".sql";
+            string path = StrXlsPath.Substring(0, StrXlsPath.LastIndexOf(@"\", StringComparison.Ordinal)) + @"\" + name + ".sql";
             using (StreamWriter sw = new StreamWriter(path))
             {
                 sw.Write(strModel);
@@ -213,6 +213,19 @@ namespace Model生成器
 
         private List<string> GetProp(DataTable dtData) => (from DataRow dr in dtData.Rows select dr["Code"].ToString()).ToList();
 
+        private Tuple<string, string> GetPrimaryKeyAndType(DataTable dtData)
+        {
+            foreach (DataRow dr in dtData.Rows)
+            {
+                if (dr["P"].ToString() == "X")
+                {
+                    Tuple<string, string> res = new Tuple<string, string>(dr["Code"].ToString(), GetMemberType(dr["Data Type"].ToString()));
+                    return res;
+                }
+            }
+            return null;
+        }
+
         private List<string> GetType(DataTable dtData)
         {
             List<string> res = new List<string>();
@@ -226,6 +239,7 @@ namespace Model生成器
         private string GetAddCode(DataTable dtData)
         {
             List<string> propList = GetProp(dtData);
+            Tuple<string, string> primaryInfo = GetPrimaryKeyAndType(dtData);
             StringBuilder addCode = new StringBuilder();
             string tbName = Path.GetFileNameWithoutExtension(StrXlsPath);
             addCode.Append("\t\t/// <summary>\r\n");
@@ -236,24 +250,32 @@ namespace Model生成器
             addCode.Append("\t\t{\r\n");
             addCode.Append("\t\t\tthis.ClearParameters();\r\n");
             addCode.Append("\t\t\tStringBuilder sql = new StringBuilder();\r\n");
-            addCode.AppendFormat("\t\t\tsql.Append(\"INSERT INTO {0} (\");\r\n", tbName);
+            if (primaryInfo != null && primaryInfo.Item2 == "string")
+            {
+                addCode.AppendFormat("\t\t\tsql.AppendFormat(\"INSERT INTO {{0}} (\",{0});\r\n", $"MonthlyTable.GetTableName(\"{tbName}\",entity.{primaryInfo.Item1})");
+            }
+            else
+            {
+                addCode.AppendFormat("\t\t\tsql.Append(\"INSERT INTO {0} (\");\r\n", tbName);
+            }
             int i = 1;
             foreach (string prop in propList)
             {
-                if (i == propList.Count)
+                if (primaryInfo != null && (primaryInfo.Item2 == "int" || primaryInfo.Item2 == "long") && prop == primaryInfo.Item1)
                 {
-                    addCode.AppendFormat("\t\t\tsql.Append(\" {0} \");\r\n", prop);
+                    continue;
                 }
-                else
-                {
-                    addCode.AppendFormat("\t\t\tsql.Append(\" {0}, \");\r\n", prop);
-                }
+                addCode.AppendFormat(i == propList.Count ? "\t\t\tsql.Append(\" {0} \");\r\n" : "\t\t\tsql.Append(\" {0}, \");\r\n", prop);
                 i++;
             }
             addCode.Append("\t\t\tsql.Append(\") VALUES(\");\r\n");
             i = 1;
             foreach (string prop in propList)
             {
+                if (primaryInfo != null && (primaryInfo.Item2 == "int" || primaryInfo.Item2 == "long") && prop == primaryInfo.Item1)
+                {
+                    continue;
+                }
                 if (i == propList.Count)
                 {
                     addCode.AppendFormat("\t\t\tsql.Append(\" @{0} \");\r\n", prop);
@@ -269,6 +291,10 @@ namespace Model生成器
             i = 1;
             foreach (string prop in propList)
             {
+                if (primaryInfo != null && (primaryInfo.Item2 == "int" || primaryInfo.Item2 == "long") && prop == primaryInfo.Item1)
+                {
+                    continue;
+                }
                 addCode.AppendFormat("\t\t\tthis.AddParameter(\"@{0}\", entity.{0});\r\n", prop);
                 i++;
             }
@@ -287,6 +313,7 @@ namespace Model生成器
         private string GetAddsCode(DataTable dtData)
         {
             List<string> propList = GetProp(dtData);
+            Tuple<string, string> primaryInfo = GetPrimaryKeyAndType(dtData);
             StringBuilder addCode = new StringBuilder();
             string tbName = Path.GetFileNameWithoutExtension(StrXlsPath);
             addCode.Append("\t\t/// <summary>\r\n");
@@ -295,12 +322,30 @@ namespace Model生成器
             addCode.Append("\t\t/// </summary>\r\n");
             addCode.AppendFormat("\t\tpublic int Add(IList<{0}> entitys)\r\n", tbName);
             addCode.Append("\t\t{\r\n");
+
+            addCode.Append("\t\t\tif (entitys == null || !entitys.Any())\r\n");
+            addCode.Append("\t\t\t{\r\n");
+            addCode.Append("\t\t\t\treturn 0;\r\n");
+            addCode.Append("\t\t\t}\r\n");
+
             addCode.Append("\t\t\tthis.ClearParameters();\r\n");
             addCode.Append("\t\t\tStringBuilder sql = new StringBuilder();\r\n");
-            addCode.AppendFormat("\t\t\tsql.Append(\"INSERT INTO {0} (\");\r\n", tbName);
+            if (primaryInfo != null && primaryInfo.Item2 == "string")
+            {
+                addCode.AppendFormat("\t\t\tsql.AppendFormat(\"INSERT INTO {{0}} (\",{0});\r\n", $"MonthlyTable.GetTableName(\"{tbName}\",entitys[0].{primaryInfo.Item1})");
+            }
+            else
+            {
+                addCode.AppendFormat("\t\t\tsql.Append(\"INSERT INTO {0} (\");\r\n", tbName);
+            }
+
             int i = 1;
             foreach (string prop in propList)
             {
+                if (primaryInfo != null && (primaryInfo.Item2 == "int" || primaryInfo.Item2 == "long") && prop == primaryInfo.Item1)
+                {
+                    continue;
+                }
                 if (i == propList.Count)
                 {
                     addCode.AppendFormat("\t\t\tsql.Append(\" {0} \");\r\n", prop);
@@ -318,6 +363,10 @@ namespace Model生成器
             i = 1;
             foreach (string prop in propList)
             {
+                if (primaryInfo != null && (primaryInfo.Item2 == "int" || primaryInfo.Item2 == "long") && prop == primaryInfo.Item1)
+                {
+                    continue;
+                }
                 if (i == propList.Count)
                 {
                     addCode.AppendFormat("\t\t\t\tsql.AppendFormat(\" @{0}{{0}}\", i);\r\n", prop);
@@ -332,6 +381,10 @@ namespace Model生成器
             i = 1;
             foreach (string prop in propList)
             {
+                if (primaryInfo != null && (primaryInfo.Item2 == "int" || primaryInfo.Item2 == "long") && prop == primaryInfo.Item1)
+                {
+                    continue;
+                }
                 addCode.AppendFormat("\t\t\t\tthis.AddParameter(string.Format(\"@{0}{{0}}\", i), entitys[i].{0});\r\n", prop);
                 i++;
             }
@@ -351,6 +404,7 @@ namespace Model生成器
         {
             List<string> propList = GetProp(dtData);
             List<string> typeList = GetType(dtData);
+            Tuple<string, string> primaryInfo = GetPrimaryKeyAndType(dtData);
             StringBuilder updateCode = new StringBuilder();
             string tbName = Path.GetFileNameWithoutExtension(StrXlsPath);
             updateCode.Append("\t\t/// <summary>\r\n");
@@ -361,7 +415,15 @@ namespace Model生成器
             updateCode.Append("\t\t{\r\n");
             updateCode.Append("\t\t\tthis.ClearParameters();\r\n");
             updateCode.Append("\t\t\tStringBuilder sql = new StringBuilder();\r\n");
-            updateCode.AppendFormat("\t\t\tsql.Append(\"UPDATE {0} SET \");\r\n", tbName);
+            if (primaryInfo != null && primaryInfo.Item2 == "string")
+            {
+                updateCode.AppendFormat("\t\t\tsql.AppendFormat(\"UPDATE {{0}} (\",{0});\r\n", $"MonthlyTable.GetTableName(\"{tbName}\",entity.{primaryInfo.Item1})");
+            }
+            else
+            {
+                updateCode.AppendFormat("\t\t\tsql.Append(\"UPDATE {0} SET \");\r\n", tbName);
+            }
+
             int i = 1;
             foreach (string prop in propList)
             {
@@ -370,14 +432,10 @@ namespace Model生成器
                     i++;
                     continue;
                 }
-                if (i == propList.Count)
-                {
-                    updateCode.AppendFormat("\t\t\tsql.Append(\" {0} = @{0} \");\r\n", prop);
-                }
-                else
-                {
-                    updateCode.AppendFormat("\t\t\tsql.Append(\" {0} = @{0}, \");\r\n", prop);
-                }
+                updateCode.AppendFormat(
+                    i == propList.Count
+                        ? "\t\t\tsql.Append(\" {0} = @{0} \");\r\n"
+                        : "\t\t\tsql.Append(\" {0} = @{0}, \");\r\n", prop);
                 i++;
             }
             updateCode.AppendFormat("\t\t\tsql.Append(\" WHERE {0} = @{0} LIMIT 1; \");\r\n", propList[0]);
@@ -385,14 +443,10 @@ namespace Model生成器
             i = 0;
             foreach (string prop in propList)
             {
-                if (typeList[i].Contains("varchar"))
-                {
-                    updateCode.AppendFormat("\t\t\tthis.AddParameter(\"@{0}\", entity.{0} ?? string.Empty);\r\n", prop);
-                }
-                else
-                {
-                    updateCode.AppendFormat("\t\t\tthis.AddParameter(\"@{0}\", entity.{0});\r\n", prop);
-                }
+                updateCode.AppendFormat(
+                    typeList[i].Contains("varchar")
+                        ? "\t\t\tthis.AddParameter(\"@{0}\", entity.{0} ?? string.Empty);\r\n"
+                        : "\t\t\tthis.AddParameter(\"@{0}\", entity.{0});\r\n", prop);
                 i++;
             }
             updateCode.Append("\r\n");
@@ -410,7 +464,7 @@ namespace Model生成器
         {
             string tbName = Path.GetFileNameWithoutExtension(StrXlsPath);
             StringBuilder strRes = new StringBuilder();
-            strRes.Append("using Qunau.NetFrameWork.Infrastructure;");
+            strRes.Append("using NetFrameWork.Infrastructure;");
             strRes.AppendLine(Environment.NewLine);
             strRes.Append("namespace T");
             strRes.Append("\r\n");
@@ -433,11 +487,12 @@ namespace Model生成器
         {
             StringBuilder strRes = new StringBuilder();
             //strRes.Append("using System;\r\n");
-            strRes.Append("using System.Collections.Generic;\r\n");
+            strRes.Append("using System.Collections.Generic;\r\n"); 
+            strRes.Append("using System.Linq;\r\n");
             strRes.Append("using System.Text;\r\n");
-            strRes.Append("using Qunau.NetFrameWork.Common.Exception;\r\n");
-            strRes.Append("using Qunau.NetFrameWork.DbCommon;\r\n");
-            strRes.Append("using Qunau.NetFrameWork.Infrastructure;");
+            strRes.Append("using NetFrameWork.Common.Exception;\r\n");
+            strRes.Append("using NetFrameWork.DbCommon;\r\n");
+            strRes.Append("using NetFrameWork.Infrastructure;");
             strRes.AppendLine(Environment.NewLine);
 
             strRes.Append("namespace T");
@@ -452,7 +507,7 @@ namespace Model生成器
             strRes.Append("\t{\r\n");
 
             strRes.Append("\t\t/// <summary>\r\n");
-            strRes.Append("\t\t/// Initializes a new instance of the <see cref=\"T: Qunau.NetFrameWork.DbCommon.BaseRepository\"/> class.\r\n");
+            strRes.Append("\t\t/// Initializes a new instance of the <see cref=\"T: NetFrameWork.DbCommon.BaseRepository\"/> class.\r\n");
             strRes.Append("\t\t/// 构造函数\r\n");
             strRes.Append("\t\t/// </summary>\r\n");
             strRes.Append("\t\t/// <param name=\"unit\">工作单元</param><param name=\"name\">链接名称</param>\r\n");
@@ -477,8 +532,8 @@ namespace Model生成器
         {
             string tbName = Path.GetFileNameWithoutExtension(StrXlsPath);
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("\tpublic class {0}Factorry\r\n", tbName);
-            sb.Append("\t{\r\n");
+            //sb.AppendFormat("\tpublic class {0}Factorry\r\n", tbName);
+            //sb.Append("\t{\r\n");
             sb.AppendFormat("\t\t#region {0}\r\n", tbName);
             sb.Append("\t\t/// <summary>\r\n");
             sb.AppendFormat("\t\t/// 创建{0}仓储接口\r\n", tbName);
@@ -508,11 +563,11 @@ namespace Model生成器
             sb.AppendFormat("\t\t\t return new {0}Repository(unitOfWork, null);\r\n", tbName);
             sb.Append("\t\t}\r\n");
             sb.Append("\t\t#endregion\r\n");
-            sb.Append("\t}");
+            //sb.Append("\t}");
             return sb.ToString();
         }
 
-        private string GetTableEvent(string strName, DataTable dtData)
+        private string GetTableEvent(DataTable dtData)
         {
             string tbName = Path.GetFileNameWithoutExtension(StrXlsPath);
             StringBuilder sb = new StringBuilder();
